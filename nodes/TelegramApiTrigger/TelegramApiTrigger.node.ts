@@ -71,19 +71,13 @@ export class TelegramApiTrigger implements INodeType {
     // Event handler for new messages
     const handleNewMessage = async (event: NewMessageEvent) => {
       try {
-        let channel = null
-        const peerId = event.message.peerId.toJSON() as { channelId?: string }
-        if (peerId.channelId) {
-          channel = await client.getEntity(peerId.channelId)
-        }
-
         const messageData = {
-          channel,
+          peer: await client.getEntity(event.message.peerId),
           message: event.message,
           isGroup: event.isGroup ?? false,
           isChannel: event.isChannel,
           isPrivate: event.isPrivate ?? false,
-          chatId: event.chatId,
+          chat: event.chat,
         }
 
         emit(messageData)
