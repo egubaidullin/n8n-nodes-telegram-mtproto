@@ -1,14 +1,14 @@
 import {
   ApplicationError,
-  IDataObject,
+  INodeExecutionData,
   INodeType,
   INodeTypeDescription,
   ITriggerFunctions,
   ITriggerResponse,
-  NodeConnectionType,
 } from 'n8n-workflow'
 import { TelegramConnectionManager, TelegramCredentials } from './TelegramConnectionManager'
 import { NewMessage, NewMessageEvent } from 'telegram/events'
+import { hasPhotoMedia, serializeInputPeerRef } from '../TelegramApi/peerHelpers'
 
 // https://docs.n8n.io/integrations/creating-nodes/build/
 export class TelegramApiTrigger implements INodeType {
@@ -24,7 +24,7 @@ export class TelegramApiTrigger implements INodeType {
       name: 'Telegram MTPROTO API Trigger',
     },
     inputs: [],
-    outputs: [NodeConnectionType.Main],
+    outputs: ['main'],
     credentials: [
       {
         name: 'telegramMTPROTOApi',
@@ -32,25 +32,32 @@ export class TelegramApiTrigger implements INodeType {
       },
     ],
     properties: [
-      // {
-      //   displayName: 'Events',
-      //   name: 'events',
-      //   type: 'multiOptions',
-      //   options: [
-      //     {
-      //       name: '*',
-      //       value: '*',
-      //     },
-      //     ...events,
-      //   ],
-      //   // eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-multi-options
-      //   default: defaultEvents,
-      // },
+      {
+        displayName: 'Download Incoming Photos',
+        name: 'downloadPhoto',
+        type: 'boolean',
+        default: false,
+        description: 'Whether to download photo media from incoming messages into n8n binary data',
+      },
+      {
+        displayName: 'Binary Property Name',
+        name: 'binaryPropertyName',
+        type: 'string',
+        default: 'data',
+        displayOptions: {
+          show: {
+            downloadPhoto: [true],
+          },
+        },
+        description: 'The name of the binary field that will contain the downloaded photo',
+      },
     ],
   }
 
   async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
     const credentials = (await this.getCredentials('telegramMTPROTOApi')) as TelegramCredentials
+    const downloadPhoto = this.getNodeParameter('downloadPhoto', false) as boolean
+    const binaryPropertyName = this.getNodeParameter('binaryPropertyName', 'data') as string
     // const selectedEvents = this.getNodeParameter('events', []) as string[]
 
     const connectionManager = TelegramConnectionManager.getInstance()
@@ -64,23 +71,59 @@ export class TelegramApiTrigger implements INodeType {
       )
     }
 
-    const emit = (data: IDataObject) => {
-      this.emit([this.helpers.returnJsonArray([data])])
+    const emit = (item: INodeExecutionData) => {
+      this.emit([[item]])
     }
 
     // Event handler for new messages
     const handleNewMessage = async (event: NewMessageEvent) => {
       try {
+        let inputChat: unknown = event.message.inputChat
+        if (!inputChat && typeof (event.message as { getInputChat?: () => Promise<unknown> }).getInputChat === 'function') {
+          try {
+            inputChat = await (event.message as { getInputChat: () => Promise<unknown> }).getInputChat()
+          } catch {
+            inputChat = undefined
+          }
+        }
+
+        const inputChatRef = serializeInputPeerRef(inputChat)
         const messageData = {
-          peer: await client.getEntity(event.message.peerId),
+          peer: event.chat ?? null,
+          peerRef: undefined,
+          inputChatRef,
           message: event.message,
+          messageId: event.message.id,
+          text: event.message.message ?? '',
+          hasMedia: Boolean(event.message.media),
+          hasPhoto: hasPhotoMedia(event.message),
           isGroup: event.isGroup ?? false,
           isChannel: event.isChannel,
           isPrivate: event.isPrivate ?? false,
           chat: event.chat,
         }
 
-        emit(messageData)
+        if (downloadPhoto && messageData.hasPhoto) {
+          const downloaded = await client.downloadMedia(event.message)
+          if (downloaded) {
+            const buffer = Buffer.isBuffer(downloaded) ? downloaded : Buffer.from(downloaded)
+            const binaryData = await this.helpers.prepareBinaryData(
+              buffer,
+              `telegram-photo-${event.message.id}.jpg`,
+              'image/jpeg'
+            )
+
+            emit({
+              json: messageData,
+              binary: {
+                [binaryPropertyName]: binaryData,
+              },
+            })
+            return
+          }
+        }
+
+        emit({ json: messageData })
       } catch (error) {
         console.error('Error processing new message:', error)
       }

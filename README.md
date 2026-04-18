@@ -1,89 +1,132 @@
 # n8n-nodes-telegram-mtproto
 
-This is an n8n community node that provides Telegram MTPROTO API integration for real-time message listening and automation workflows.
+Telegram MTProto client-account integration for `n8n`.
 
-This node allows you to listen for new Telegram messages using the official Telegram MTPROTO protocol through the telegram library. It's perfect for creating Telegram bots, message monitoring systems, auto-responders, and workflow automation based on incoming messages.
+This fork extends the original package so `n8n` workflows can:
 
-[n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
+- listen for incoming Telegram messages as a real Telegram user account
+- optionally download incoming photo media into `n8n` binary data
+- send and reply to messages as the same Telegram user account
 
-[Installation](#installation)  
-[Quick Start](#quick-start)  
-[Operations](#operations)  
-[Credentials](#credentials)  
-[Build Instructions](#build-instructions)  
-[Compatibility](#compatibility)  
-[Resources](#resources)
+This is useful when you need a real Telegram client-account automation path instead of the standard Telegram bot path.
+
+[Installation](#installation)
+[What This Fork Adds](#what-this-fork-adds)
+[Quick Start](#quick-start)
+[Credentials](#credentials)
+[Build Instructions](#build-instructions)
+[Compatibility](#compatibility)
 
 ## Installation
 
-Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation.
+Follow the [n8n community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/).
 
-Install from npm registry using bun:
+If you are using this fork directly from GitHub, you can point your installation process at this repository.
+
+The package name intentionally remains:
 
 ```bash
-npm install n8n-nodes-telegram-mtproto
+n8n-nodes-telegram-mtproto
 ```
+
+This keeps existing workflow node types compatible with the original package prefix.
+
+## What This Fork Adds
+
+Compared with the original upstream package, this fork adds:
+
+1. `Telegram MTPROTO API`
+   - a send/reply action node for Telegram client-account workflows
+
+2. Trigger-side photo download
+   - the trigger can download incoming Telegram photos into `n8n` binary data
+
+3. Better reply targeting support
+   - supports preserving and reusing `inputChatRef` for reply flows after downstream transformations
+
+4. Plain-text Telegram sends
+   - replies are sent with `parseMode: false` to avoid markup parsing failures on masked values
 
 ## Quick Start
 
-1. Get your Telegram API credentials from https://my.telegram.org/apps
-2. Generate a session string using `bun run test:connection` (see [Credentials](#credentials) section)
-3. Create a "Personal Telegram MTPROTO API" credential in n8n with your API details and session string
-4. Add the "Telegram MTPROTO API Trigger" node to your workflow
-5. Start your workflow to begin receiving new Telegram messages
+1. Get your Telegram API credentials from `https://my.telegram.org/apps`
+2. Generate a session string using `bun run test:connection`
+3. Create a `Personal Telegram MTPROTO API` credential in `n8n`
+4. Add `Telegram MTPROTO API Trigger` to listen for inbound messages
+5. Add `Telegram MTPROTO API` to send replies or direct messages
 
-## Operations
+Typical pattern:
+
+- trigger on inbound messages
+- inspect message metadata
+- optionally download photo binary
+- process the message or image
+- reply through `Telegram MTPROTO API`
+
+## Nodes In This Fork
 
 ### Telegram MTPROTO API Trigger
 
-This trigger node listens for new messages from Telegram using the MTPROTO protocol. The node automatically triggers when any new message is received in chats that your Telegram account has access to.
+Listens for inbound Telegram messages on the connected Telegram user account.
 
-### Configuration Options
+Useful outputs include:
 
-Currently, the trigger listens to all new messages without additional filtering options. Future versions may include options to filter by chat type or sender.
+- `inputChatRef`
+- `messageId`
+- `text`
+- `hasMedia`
+- `hasPhoto`
+- `isPrivate`
+- `message`
+
+Optional trigger features:
+
+- `Download Incoming Photos`
+- configurable binary property name, default `data`
+
+### Telegram MTPROTO API
+
+Sends messages as the same Telegram user account.
+
+Useful for:
+
+- replying to inbound Telegram messages
+- sending direct messages by username or phone number
+- building MTProto-based client workflows in `n8n`
+
+Important parameters:
+
+- `targetMode=incomingMessagePeer`
+- `replyToIncomingMessage`
+- `inputPeerRefJson`
 
 ## Credentials
 
-You need to create Telegram API credentials to use this node:
+You need a Telegram user account and Telegram API credentials.
 
 ### Prerequisites
 
 1. A Telegram account
-2. Access to https://my.telegram.org/apps
-3. Bun runtime installed (for session string generation)
+2. Access to `https://my.telegram.org/apps`
+3. Bun runtime installed for session string generation
 
 ### Setup Steps
 
-1. Visit https://my.telegram.org/apps and log in
-2. Click "API Development Tools"
-3. Create a new application (any name is fine)
-4. Save your `api_id` and `api_hash`
+1. Visit `https://my.telegram.org/apps`
+2. Create an application
+3. Save your `api_id` and `api_hash`
+4. Run:
 
-### Generating Session String
+```bash
+bun run test:connection
+```
 
-Due to Telegram's authentication requirements, you need to generate a session string manually:
-
-1. Clone this repository or navigate to your n8n community nodes directory
-2. Run the connection test script:
-   ```bash
-   bun run test:connection
-   ```
-3. Follow the prompts to enter:
-
-   - Your API ID
-   - Your API Hash
-   - Your phone number (with country code, e.g., +1234567890)
-   - Verification code sent to Telegram
-   - 2FA password (if enabled)
-
-4. The script will output a session string - copy this for use in n8n
-
-### Creating n8n Credential
-
-1. In n8n, create a "Personal Telegram MTPROTO API" credential
-2. Enter your API ID, API Hash, phone number, and the session string from above
-
-⚠️ **Important**: The session string is required for the node to work. This is a workaround to handle Telegram's interactive authentication process.
+5. Follow the prompts to generate a Telegram session string
+6. In `n8n`, create a `Personal Telegram MTPROTO API` credential using:
+   - API ID
+   - API Hash
+   - phone number
+   - session string
 
 ## Build Instructions
 
@@ -91,40 +134,54 @@ This project uses Bun as the primary build tool and package manager.
 
 ### Development Setup
 
-1. Install Bun if you haven't already:
+1. Install Bun:
 
-   ```bash
-   curl -fsSL https://bun.sh/install | bash
-   ```
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
 
 2. Install dependencies:
 
-   ```bash
-   bun install
-   ```
+```bash
+bun install
+```
 
 3. Build the project:
-   ```bash
-   bun run build
-   ```
+
+```bash
+bun run build
+```
 
 ### Available Scripts
 
-- `bun run build` - Build the project for production
-- `bun run dev` - Watch mode for development
-- `bun run test:connection` - Test Telegram connection and generate session string
-- `bun run lint` - Run ESLint
-- `bun run format` - Format code with Prettier
+- `bun run build` - build the package
+- `bun run dev` - watch mode
+- `bun run test:connection` - generate session string / test Telegram connectivity
+- `bun run lint` - run lint checks
+- `bun run format` - format sources
 
 ## Compatibility
 
-- **Minimum n8n version**: 1.82.0
-- **Bun**: >=1.00
-- **Node.js**: >=18.0.0 (if not using Bun)
-- **Tested with**: n8n v1.82.0+
+- Minimum `n8n` version: `1.82.0`
+- Tested here with current `n8n 1.x`
+- Bun: `>=1.00`
+- Node.js can still be used at runtime by `n8n`, while Bun remains the intended build tool
+
+## Fork Notes
+
+This repository is maintained as a practical fork for Telegram client-account automation in `n8n`.
+
+The local source of truth for the current deployment was originally maintained in:
+
+- `vendor/n8n-nodes-telegram-mtproto/`
+
+The next sensible maintenance steps are:
+
+- keep this fork as the canonical source for further MTProto work
+- decide later whether to publish it as a distinct public npm package name or keep it as a fork-compatible package identity
 
 ## Resources
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
 - [Telegram API Documentation](https://core.telegram.org/api)
-- [Telegram MTPROTO Library](https://github.com/gram-js/gramjs)
+- [GramJS](https://github.com/gram-js/gramjs)

@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-telegram-mtproto",
-  "version": "0.1.19",
-  "description": "Telegram MTPROTO API integration for n8n - Real-time new message listening and automation",
+  "version": "0.2.0",
+  "description": "Telegram MTProto client-account integration for n8n with inbound trigger, reply/send actions, and photo download support",
   "keywords": [
     "n8n-community-node-package",
     "telegram",
@@ -9,18 +9,22 @@
     "gramjs",
     "messaging",
     "automation",
+    "client-account",
+    "reply",
+    "photo",
+    "photo-download",
     "bot",
     "trigger",
     "real-time"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://github.com/egubaidullin/n8n-nodes-telegram-mtproto",
   "author": {
     "name": "vzxp"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/veezex/n8n-nodes-telegram-mtproto.git"
+    "url": "https://github.com/egubaidullin/n8n-nodes-telegram-mtproto.git"
   },
   "engines": {
     "bun": ">=1.00"
@@ -45,7 +49,8 @@
       "dist/credentials/TelegramMTPROTOApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/TelegramApiTrigger/TelegramApiTrigger.node.js"
+      "dist/nodes/TelegramApiTrigger/TelegramApiTrigger.node.js",
+      "dist/nodes/TelegramApi/TelegramApi.node.js"
     ]
   },
   "devDependencies": {
@@ -54,6 +59,7 @@
     "eslint": "^8.57.1",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
     "gulp": "^5.0.1",
+    "n8n-workflow": "^1.120.10",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   },
